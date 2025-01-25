@@ -20,3 +20,5 @@ Test Results should be put in a TestResult object. This object contains four pro
 - check: what check are we doing
 - status: what is the status (vulnerable, not vulnerable, check failure)
 - details: any additional details that might be useful in the output
+
+![image](PT.PNG)
