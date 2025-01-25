@@ -1,6 +1,6 @@
 # PentestTools
 
-A collection of scripts useful when pentesting
+Automate everything you can with our PentestTools automation framework. It's easy to copy a module sample and create your own modules.
 
 run "python PentestTools.py" for help
 
