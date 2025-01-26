@@ -2,14 +2,16 @@
 
 Automate everything you can with our PentestTools automation framework. It's easy to copy a module sample and create your own modules.
 
-run "python PentestTools.py" for help
+run "python PentestTools.py -h" for help
+run "python PentestTools.py" for a list of modules
 
 Add your own modules in [PentestTools/modules](https://github.com/integsec/PentestTools/tree/main/PentestTools/modules)
 
 In that folder, you will also find the following files:
 - sample_module.py: a simple example module, suitable to be copied when starting a new module
-- TLSv1_Test.py: an example completed module
-- TLSv11_Test.py: an example completed module
+- TLSv1_Test.py: Tests for TLSv1 support
+- TLSv11_Test.py: Tests for TLSv1.1 support
+- ServerBanner_Test: Test for Server headers in HTTP Response
 
 To implement a module, you only need 2 functions
 - parse_args: to parse command line arguments
