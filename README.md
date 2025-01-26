@@ -23,35 +23,38 @@ Test Results should be put in a TestResult object. This object contains four pro
 
 ![image](PT.PNG)
 
-Running all modules with json output against www.integsec.com:
+Running all modules with json output against www.edendata.com:
 
-```> python .\PentestTools.py --all --output=json all -t www.integsec.com
-Pentest Tools v0.1
-
-Discovered modules: ['sample_module', 'TLSv11_Test', 'TLSv1_Test']
-Running all modules...
-Running module: sample_module
-Module 'sample_module' successfully imported.
-Running example module against target: www.integsec.com
-Exporting to JSON format...
+```> python .\PentestTools.py all -t www.edendata.com 
+Running example module against target: www.edendata.com
+Target: www.edendata.com, Check: Server Banner, Status: not vulnerable, Details: {'Server': 'Not found'}
+Target: www.edendata.com, Check: TLSv1.1 in Use, Status: not vulnerable, Details: {'protocol': 'TLSv1.1', 'error': '[SSL: NO_CIPHERS_AVAILABLE] no ciphers available (_ssl.c:1006)'}
+Target: www.edendata.com, Check: TLSv1 in Use, Status: not vulnerable, Details: {'protocol': 'TLSv1', 'error': '[SSL: NO_CIPHERS_AVAILABLE] no ciphers available (_ssl.c:1006)'}
+PS C:\Users\MichelChamberland\Work\Code\PentestTools\PentestTools> python .\PentestTools.py --output=csv all -t www.edendata.com
+Running example module against target: www.edendata.com
+www.edendata.com,Server Banner,not vulnerable,{"Server": "Not found"}
+www.edendata.com,TLSv1.1 in Use,not vulnerable,{"protocol": "TLSv1.1", "error": "[SSL: NO_CIPHERS_AVAILABLE] no ciphers available (_ssl.c:1006)"}
+www.edendata.com,TLSv1 in Use,not vulnerable,{"protocol": "TLSv1", "error": "[SSL: NO_CIPHERS_AVAILABLE] no ciphers available (_ssl.c:1006)"}
+PS C:\Users\MichelChamberland\Work\Code\PentestTools\PentestTools> python .\PentestTools.py --output=xml all -t www.edendata.com
+Running example module against target: www.edendata.com
+<result><target>www.edendata.com</target><check>Server Banner</check><status>not vulnerable</status><details><Server>Not found</key></details></result>
+<result><target>www.edendata.com</target><check>TLSv1.1 in Use</check><status>not vulnerable</status><details><protocol>TLSv1.1</key><error>[SSL: NO_CIPHERS_AVAILABLE] no ciphers available (_ssl.c:1006)</key></details></result>
+<result><target>www.edendata.com</target><check>TLSv1 in Use</check><status>not vulnerable</status><details><protocol>TLSv1</key><error>[SSL: NO_CIPHERS_AVAILABLE] no ciphers available (_ssl.c:1006)</key></details></result>
+PS C:\Users\MichelChamberland\Work\Code\PentestTools\PentestTools> python .\PentestTools.py --output=json all -t www.edendata.com
+Running example module against target: www.edendata.com
 [
   {
-    "target": "www.integsec.com",
-    "status": "success",
-    "check": "Sample",
+    "target": "www.edendata.com",
+    "status": "not vulnerable",
+    "check": "Server Banner",
     "details": {
-      "example": "data"
+      "Server": "Not found"
     }
   }
 ]
-Running module: TLSv11_Test
-Module 'TLSv11_Test' successfully imported.
-Running TLSv1.1 test against target: www.integsec.com
-TLSv1.1 is not supported on www.integsec.com:443
-Exporting to JSON format...
 [
   {
-    "target": "www.integsec.com",
+    "target": "www.edendata.com",
     "status": "not vulnerable",
     "check": "TLSv1.1 in Use",
     "details": {
@@ -60,14 +63,9 @@ Exporting to JSON format...
     }
   }
 ]
-Running module: TLSv1_Test
-Module 'TLSv1_Test' successfully imported.
-Running TLSv1 test against target: www.integsec.com
-TLSv1 is not supported on www.integsec.com:443
-Exporting to JSON format...
 [
   {
-    "target": "www.integsec.com",
+    "target": "www.edendata.com",
     "status": "not vulnerable",
     "check": "TLSv1 in Use",
     "details": {
