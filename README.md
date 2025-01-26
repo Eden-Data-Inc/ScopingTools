@@ -25,7 +25,7 @@ Test Results should be put in a TestResult object. This object contains four pro
 
 ![image](PT.PNG)
 
-Running all modules with json output against www.edendata.com:
+Running all modules with various output formats against www.edendata.com:
 
 ```$ **python .\PentestTools.py all -t www.edendata.com**
 Running example module against target: www.edendata.com
