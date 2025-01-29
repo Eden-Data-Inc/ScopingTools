@@ -76,3 +76,7 @@ $ python .\PentestTools.py --output=json all -t www.edendata.com
     }
   }
 ]```
+
+Future Improvements
+- More flexible targetting formats (nmap target specification, host:port so we can test things like TLS issues on multiple ports)
+- Output to Plextrac CSV format (https://docs.plextrac.com/plextrac-documentation/product-documentation/reports/findings/csv-findings-templates/using-report-findings-csv-template)
