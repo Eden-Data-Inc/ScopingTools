@@ -2,6 +2,7 @@
 
 Automate everything you can with our PentestTools automation framework. It's easy to copy a module sample and create your own modules.
 
+install dependencies with: pip install -r requirements.txt
 run "python PentestTools.py -h" for help
 run "python PentestTools.py" for a list of modules
 
