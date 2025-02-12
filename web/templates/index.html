@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pentest Tools</title>
+</head>
+<body>
+    <h1>Pentest Tools</h1>
+    <form action="{{ url_for('run') }}" method="post">
+        <label for="target">Target:</label>
+        <input type="text" id="target" name="target" required>
+        <h2>Select Modules:</h2>
+        {% for module in modules %}
+            <input type="checkbox" id="{{ module }}" name="modules" value="{{ module }}">
+            <label for="{{ module }}">{{ module }}</label><br>
+        {% endfor %}
+        <button type="submit">Run</button>
+    </form>
+</body>
+</html>
