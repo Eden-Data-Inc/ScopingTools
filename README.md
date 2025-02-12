@@ -19,4 +19,4 @@ IoT\
 Global Accelerator\
 MQ\
 GameLift\
-Managed Blockchain\
+Managed Blockchain
