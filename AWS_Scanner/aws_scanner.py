@@ -202,10 +202,13 @@ def list_blockchain_networks(blockchain_client):
         return ''
 
 def export_to_json(data, filename="output.json"):
+    output = []
+    for service, resources in data.items():
+        if len(resources) != 0:
+            output.extend(resources)
     with open(filename + ".json", "w") as json_file:
-        json.dump(data, json_file, indent=4)
+            json.dump(output, json_file, indent=None)
     print(f"Data exported to {filename} in JSON format.")
-
 
 def export_to_csv(data, filename="output.csv"):
     with open(filename + ".csv", "w", newline="") as csv_file:
@@ -215,14 +218,13 @@ def export_to_csv(data, filename="output.csv"):
             writer.writerows([[resource] for resource in resources])
     print(f"Data exported to {filename} in CSV format.")
 
-
 def export_to_xml(data, filename="output.xml"):
     root = ET.Element("AWSResources")
     for service, resources in data.items():
-        service_element = ET.SubElement(root, service)
-        for resource in resources:
-            resource_element = ET.SubElement(service_element, "Resource")
-            resource_element.text = str(resource)
+        if len(resources) != 0:
+            output = ', '.join(resources)
+            service_element = ET.SubElement(root, service)
+            service_element.text = str(output)
     tree = ET.ElementTree(root)
     tree.write(filename + ".xml")
     print(f"Data exported to {filename} in XML format.")
@@ -286,12 +288,13 @@ def main():
         for function_name, label in functions:
             function = globals()[function_name]
             results[service].extend(function(clients[service]))
-
+    
     for service, resources in results.items():
-        print(f"{service}:")
+    #    print(f"{service}:")
         for resource in resources:
-            print(f"  - {resource}")
-
+            print(f"{resource}")
+    #        print(f"  - {resource}")
+    
     if args.output_json:
         export_to_json(results, args.output_json)
     if args.output_csv:
