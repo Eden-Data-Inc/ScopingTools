@@ -8,19 +8,45 @@ from botocore.exceptions import ClientError
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description="AWS Resource Manager")
-    parser.add_argument("--aws_access_key_id", required=True, help="AWS Access Key ID")
-    parser.add_argument("--aws_secret_access_key", required=True, help="AWS Secret Access Key")
+    parser.add_argument("--role_arn", help="AWS Role ARN")
+    parser.add_argument("--aws_access_key_id", help="AWS Access Key ID")
+    parser.add_argument("--aws_secret_access_key", help="AWS Secret Access Key")
     parser.add_argument("--region_name", required=True, help="AWS Region (default: us-east-2)")
     parser.add_argument("--output-json", help="Output file name for JSON format (without extension)")
     parser.add_argument("--output-csv", help="Output file name for CSV format (without extension)")
     parser.add_argument("--output-xml", help="Output file name for XML format (without extension)")
     return parser.parse_args()
 
-def get_aws_client(service_name, aws_access_key_id, aws_secret_access_key, region_name):
+def assume_role(role_arn):
+    sts_client = boto3.client("sts")
+
+    response = sts_client.assume_role(
+        RoleArn=role_arn,
+        RoleSessionName="Session"
+    )
+
+    credentials = response["Credentials"]
+
+    return {
+        "aws_access_key_id": credentials["AccessKeyId"],
+        "aws_secret_access_key": credentials["SecretAccessKey"],
+        "aws_session_token": credentials["SessionToken"],
+    }
+
+def get_aws_client_key(service_name, aws_access_key_id, aws_secret_access_key, region_name):
     return boto3.client(
         service_name,
         aws_access_key_id=aws_access_key_id,
         aws_secret_access_key=aws_secret_access_key,
+        region_name=region_name,
+    )
+
+def get_aws_client_role(service_name, aws_access_key_id, aws_secret_access_key, aws_session, region_name):
+    return boto3.client(
+        service_name,
+        aws_access_key_id=aws_access_key_id,
+        aws_secret_access_key=aws_secret_access_key,
+        aws_session_token=aws_session,
         region_name=region_name,
     )
 
@@ -276,11 +302,27 @@ def main():
         "gamelift": [("list_gamelift_fleets", "GameLift Fleets")],
         "managedblockchain": [("list_blockchain_networks", "Blockchain Networks")],
 	}
+    if args.role_arn != "":
+        creds = assume_role(args.role_arn)
+        aws_access_key_id = creds["aws_access_key_id"]
+        aws_secret_access_key = creds["aws_secret_access_key"]
+        aws_session=creds["aws_session_token"]
+        clients = {
+            service: get_aws_client_role(service, aws_access_key_id, aws_secret_access_key, aws_session, args.region_name)
+            for service in aws_services
+        }
+    elif args.aws_access_key_id != "" and args.aws_secret_access_key != "":
+        aws_access_key_id = args.aws_access_key_id
+        aws_secret_access_key = args.aws_secret_access_key
+        clients = {
+            service: get_aws_client_key(service, aws_access_key_id, aws_secret_access_key, args.region_name)
+            for service in aws_services
+        }
+    else:
+        print("Please choose a valid Authentication Method")
+        print("Use --role_arn OR \n --aws_secret_access_key AND --aws_secret_access_key")
 
-    clients = {
-        service: get_aws_client(service, args.aws_access_key_id, args.aws_secret_access_key, args.region_name)
-        for service in aws_services
-    }
+
 
     results = {}
     for service, functions in aws_services.items():
