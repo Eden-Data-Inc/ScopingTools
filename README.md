@@ -1,10 +1,14 @@
 # ScopingTools
 ### AWS Scanner Usage
 Using Access Keys\
-```python aws_scanner.py --aws_access_key_id [aws_access_key] --aws_secret_access_key [aws_secret_access_key] --region_name [region_name] --output-xml [file_name]```
+```python aws_scanner.py --aws_access_key_id [aws_access_key] --aws_secret_access_key [aws_secret_access_key] --region_name [region_name] --output-json [file_name]```
 
-Using Role ARN
-```python aws_scanner.py --role_arn [role_arn] --region_name [region_name] --output-xml [file_name]```
+Using Role ARN\
+```python aws_scanner.py --role_arn [role_arn] --region_name [region_name] --output-csv [file_name]```
+
+Using AWS SSO\
+```python aws_scanner.py --sso --region_name [region_name] --output-xml [file_name]```\
+```python aws_scanner.py --sso_profile [profile_name] --region_name [region_name] --output-xml [file_name]```
 
 ### To setup Role ARN
 1. Create a new role on AWS
@@ -43,6 +47,11 @@ Make sure to replace ```ACCOUNT-ID-WITHOUT-HYPENS``` with your AccountID and mak
 }
 ```
 Make sure to replace ```arn:aws:iam::123456789012:role/MyRole``` with your actual Role ARN
+
+### To setup AWS SSO
+1. Make an account using IAM Identity Center, add a user and take note of the credentials.
+2. Make a permission set.
+3. Run ```aws configure sso``` on your cli and put in your credentials.
 
 ### Scans the following
 EC2\
