@@ -3,8 +3,7 @@ import argparse
 import csv
 import json
 import xml.etree.ElementTree as ET
-from botocore.exceptions import ClientError
-
+from botocore.exceptions import ClientError, NoCredentialsError, ProfileNotFound
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description="AWS Resource Manager")
@@ -12,6 +11,8 @@ def parse_arguments():
     parser.add_argument("--aws_access_key_id", help="AWS Access Key ID")
     parser.add_argument("--aws_secret_access_key", help="AWS Secret Access Key")
     parser.add_argument("--region_name", required=True, help="AWS Region (default: us-east-2)")
+    parser.add_argument("--sso", action="store_true", help="Use AWS SSO for authentication")
+    parser.add_argument("--sso_profile", help="AWS SSO Profile Name")
     parser.add_argument("--output-json", help="Output file name for JSON format (without extension)")
     parser.add_argument("--output-csv", help="Output file name for CSV format (without extension)")
     parser.add_argument("--output-xml", help="Output file name for XML format (without extension)")
@@ -19,36 +20,41 @@ def parse_arguments():
 
 def assume_role(role_arn):
     sts_client = boto3.client("sts")
-
-    response = sts_client.assume_role(
-        RoleArn=role_arn,
-        RoleSessionName="Session"
-    )
-
+    response = sts_client.assume_role(RoleArn=role_arn, RoleSessionName="Session")
     credentials = response["Credentials"]
-
     return {
         "aws_access_key_id": credentials["AccessKeyId"],
         "aws_secret_access_key": credentials["SecretAccessKey"],
         "aws_session_token": credentials["SessionToken"],
     }
 
-def get_aws_client_key(service_name, aws_access_key_id, aws_secret_access_key, region_name):
-    return boto3.client(
-        service_name,
-        aws_access_key_id=aws_access_key_id,
-        aws_secret_access_key=aws_secret_access_key,
-        region_name=region_name,
-    )
-
-def get_aws_client_role(service_name, aws_access_key_id, aws_secret_access_key, aws_session, region_name):
-    return boto3.client(
-        service_name,
-        aws_access_key_id=aws_access_key_id,
-        aws_secret_access_key=aws_secret_access_key,
-        aws_session_token=aws_session,
-        region_name=region_name,
-    )
+def get_aws_client(service_name, args):
+    if args.role_arn:
+        creds = assume_role(args.role_arn)
+        return boto3.client(
+            service_name,
+            aws_access_key_id=creds["aws_access_key_id"],
+            aws_secret_access_key=creds["aws_secret_access_key"],
+            aws_session_token=creds["aws_session_token"],
+            region_name=args.region_name,
+        )
+    elif args.aws_access_key_id and args.aws_secret_access_key:
+        return boto3.client(
+            service_name,
+            aws_access_key_id=args.aws_access_key_id,
+            aws_secret_access_key=args.aws_secret_access_key,
+            region_name=args.region_name,
+        )
+    elif args.sso:
+        try:
+            session = boto3.Session(profile_name=args.sso_profile) if args.sso_profile else boto3.Session()
+            return session.client(service_name, region_name=args.region_name)
+        except ProfileNotFound:
+            print("SSO profile not found. Ensure you have run 'aws configure sso' and provided a valid profile.")
+            exit(1)
+    else:
+        print("Please choose a valid authentication method: --role_arn, --aws_access_key_id & --aws_secret_access_key, or --sso.")
+        exit(1)
 
 def list_ec2_public_ips(ec2_client):
     response = ec2_client.describe_instances()
@@ -230,27 +236,33 @@ def list_blockchain_networks(blockchain_client):
 def export_to_json(data, filename="output.json"):
     output = []
     for service, resources in data.items():
-        if len(resources) != 0:
-            output.extend(resources)
+        for resource in resources:
+            if len(resource) != 0:
+                output.extend(resource)
     with open(filename + ".json", "w") as json_file:
             json.dump(output, json_file, indent=None)
     print(f"Data exported to {filename} in JSON format.")
 
 def export_to_csv(data, filename="output.csv"):
+    output = []
     with open(filename + ".csv", "w", newline="") as csv_file:
         writer = csv.writer(csv_file)
         for service, resources in data.items():
             #writer.writerow([service])
-            writer.writerows([[resource] for resource in resources])
+            for resource in resources:
+                if len(resource) != 0:
+                    output.extend(resource)
+        writer.writerows([output])
     print(f"Data exported to {filename} in CSV format.")
 
 def export_to_xml(data, filename="output.xml"):
     root = ET.Element("AWSResources")
     for service, resources in data.items():
-        if len(resources) != 0:
-            output = ', '.join(resources)
-            service_element = ET.SubElement(root, service)
-            service_element.text = str(output)
+        for resource in resources:
+            if len(resource) != 0:
+                output = ', '.join(resource)
+                service_element = ET.SubElement(root, service)
+                service_element.text = str(output)
     tree = ET.ElementTree(root)
     tree.write(filename + ".xml")
     print(f"Data exported to {filename} in XML format.")
@@ -261,82 +273,55 @@ def main():
 
     aws_services = {
 		"ec2": [
-            ("list_ec2_public_ips", "EC2 Public IPs"), 
-            ("list_elastic_ips", "Elastic IPs"),
-            ("list_vpcs", "VPCs"),
-            ("list_subnets", "Subnets"),
-            ("list_route_tables", "Route Tables"),
+            "list_ec2_public_ips", 
+            "list_elastic_ips",
+            "list_vpcs",
+            "list_subnets",
+            "list_route_tables",
             ],
-		"ecs": [("list_ecs_services_with_public_lb", "ECS Services with Public Load Balancers")],
-		"elbv2": [("list_load_balancers", "Load Balancers")],
-		"rds": [("list_public_rds_instances", "Public RDS Instances")],
-		"cloudfront": [("list_cloudfront_distributions", "CloudFront Distributions")],
-		"s3": [("list_s3_buckets", "S3 Buckets")],
-		"apigateway": [("list_api_gateway_endpoints", "API Gateway Endpoints")],
-		"lightsail": [("list_lightsail_instances", "Lightsail Instances with Public IPs")],
-		"elasticbeanstalk": [("list_elastic_beanstalk_environments", "Elastic Beanstalk Environments")],
-		"route53": [("list_route53_hosted_zones", "Route 53 Hosted Zones")],
-		"eks": [("list_eks_clusters", "EKS Clusters")],
-		"apprunner": [("list_app_runner_services", "App Runner Services")],
-		"amplify": [("list_amplify_apps", "Amplify Apps")],
-		"iot": [("list_iot_endpoints", "IoT Endpoints")],
-		"globalaccelerator": [("list_global_accelerator_configurations", "Global Accelerator Configurations")],
-		"mq": [("list_mq_brokers", "MQ Brokers")],
-        "lambda": [("list_lambda_functions", "Lambda Functions")],
-        "batch": [("list_batch_compute_environments", "Batch Compute Environments")],
-        "dynamodb": [("list_dynamodb_tables", "DynamoDB Tables")],
-        "redshift": [("list_redshift_clusters", "Redshift Clusters")],
+		"ecs": ["list_ecs_services_with_public_lb"],
+		"elbv2": ["list_load_balancers"],
+		"rds": ["list_public_rds_instances"],
+		"cloudfront": ["list_cloudfront_distributions"],
+		"s3": ["list_s3_buckets"],
+		"apigateway": ["list_api_gateway_endpoints"],
+		"lightsail": ["list_lightsail_instances"],
+		"elasticbeanstalk": ["list_elastic_beanstalk_environments"],
+		"route53": ["list_route53_hosted_zones"],
+		"eks": ["list_eks_clusters"],
+        "apprunner": ["list_app_runner_services"],
+		"amplify": ["list_amplify_apps"],
+		"iot": ["list_iot_endpoints"],
+		"globalaccelerator": ["list_global_accelerator_configurations"],
+		"mq": ["list_mq_brokers"],
+        "lambda": ["list_lambda_functions"],
+        "batch": ["list_batch_compute_environments"],
+        "dynamodb": ["list_dynamodb_tables"],
+        "redshift": ["list_redshift_clusters"],
         "iam": [
-            ("list_iam_users", "IAM Users"),
-            ("list_iam_roles", "IAM Roles"),
+            "list_iam_users",
+            "list_iam_roles",
         ],
-        "secretsmanager": [("list_secrets", "Secrets")],
-        "cloudwatch": [("list_cloudwatch_alarms", "CloudWatch Alarms")],
-        "ssm": [("list_ssm_managed_instances", "SSM Managed Instances")],
-        "codebuild": [("list_codebuild_projects", "CodeBuild Projects")],
-        "codepipeline": [("list_codepipeline_pipelines", "CodePipeline Pipelines")],
-        "sagemaker": [("list_sagemaker_endpoints", "SageMaker Endpoints")],
-        "rekognition": [("list_rekognition_collections", "Rekognition Collections")],
-        "emr": [("list_emr_clusters", "EMR Clusters")],
-        "appsync": [("list_appsync_apis", "AppSync GraphQL APIs")],
-        "gamelift": [("list_gamelift_fleets", "GameLift Fleets")],
-        "managedblockchain": [("list_blockchain_networks", "Blockchain Networks")],
+        "secretsmanager": ["list_secrets"],
+        "cloudwatch": ["list_cloudwatch_alarms"],
+        "ssm": ["list_ssm_managed_instances"],
+        "codebuild": ["list_codebuild_projects"],
+        "codepipeline": ["list_codepipeline_pipelines"],
+        "sagemaker": ["list_sagemaker_endpoints"],
+        "rekognition": ["list_rekognition_collections"],
+        "emr": ["list_emr_clusters"],
+        "appsync": ["list_appsync_apis"],
+        "gamelift": ["list_gamelift_fleets"],
+        "managedblockchain": ["list_blockchain_networks"],
 	}
-    if args.role_arn != "":
-        creds = assume_role(args.role_arn)
-        aws_access_key_id = creds["aws_access_key_id"]
-        aws_secret_access_key = creds["aws_secret_access_key"]
-        aws_session=creds["aws_session_token"]
-        clients = {
-            service: get_aws_client_role(service, aws_access_key_id, aws_secret_access_key, aws_session, args.region_name)
-            for service in aws_services
-        }
-    elif args.aws_access_key_id != "" and args.aws_secret_access_key != "":
-        aws_access_key_id = args.aws_access_key_id
-        aws_secret_access_key = args.aws_secret_access_key
-        clients = {
-            service: get_aws_client_key(service, aws_access_key_id, aws_secret_access_key, args.region_name)
-            for service in aws_services
-        }
-    else:
-        print("Please choose a valid Authentication Method")
-        print("Use --role_arn OR \n --aws_secret_access_key AND --aws_secret_access_key")
-
-
-
-    results = {}
-    for service, functions in aws_services.items():
-        results[service] = []
-        for function_name, label in functions:
-            function = globals()[function_name]
-            results[service].extend(function(clients[service]))
-    
+    clients = {service: get_aws_client(service, args) for service in aws_services}
+    results = {service: [globals()[func](clients[service]) for func in functions] for service, functions in aws_services.items()}
     for service, resources in results.items():
-    #    print(f"{service}:")
         for resource in resources:
-            print(f"{resource}")
-    #        print(f"  - {resource}")
-    
+            if len(resource) != 0:
+                for i in resource:
+                    print(i)
+
     if args.output_json:
         export_to_json(results, args.output_json)
     if args.output_csv:
