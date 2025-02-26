@@ -2,7 +2,8 @@ import argparse
 import csv
 import json
 import xml.etree.ElementTree as ET
-from google.oauth2 import service_account
+import google.auth
+from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
 
@@ -73,7 +74,7 @@ def main():
     if args.service_account_key:
         credentials = service_account.Credentials.from_service_account_file(args.service_account_key)
     elif args.oauth_token:
-        credentials = google.auth.credentials.Credentials(token=args.oauth_token)
+        credentials = Credentials(token=args.oauth_token)
     else:
         print("Please provide authentication via service account key or OAuth token.")
         return
