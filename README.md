@@ -99,3 +99,7 @@ Using OAuth Token\
 2. Login to using ```gcloud init```
 3. Run the command ```gcloud auth application-default login``` to use access tokens
 4. Authenticate and Get token using the command ```gcloud auth application-default print-access-token```
+
+#### Scans the following
+Compute Instances\
+Storage Buckets
