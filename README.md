@@ -10,6 +10,12 @@ Using AWS SSO\
 ```python aws_scanner.py --sso --region_name [region_name] --output-xml [file_name]```\
 ```python aws_scanner.py --sso_profile [profile_name] --region_name [region_name] --output-xml [file_name]```
 
+### To setup Access Keys
+1. Sign in to your AWS Account
+2. Click on your profile on the top left corner and select Security Credentials
+3. Find the Access Key section and click Create access key
+4. Follow the intructions
+
 ### To setup Role ARN
 1. Create a new role on AWS
 2. Choose an AWS account
@@ -48,12 +54,12 @@ Make sure to replace ```ACCOUNT-ID-WITHOUT-HYPENS``` with your AccountID and mak
 ```
 Make sure to replace ```arn:aws:iam::123456789012:role/MyRole``` with your actual Role ARN
 
-### To setup AWS SSO
-1. Make an account using IAM Identity Center, add a user and take note of the credentials.
-2. Make a permission set.
-3. Run ```aws configure sso``` on your cli and put in your credentials.
+#### To setup AWS SSO
+1. Make an account using IAM Identity Center, add a user and take note of the credentials
+2. Make a permission set
+3. Run ```aws configure sso``` on your cli and put in your credentials
 
-### Scans the following
+#### Scans the following
 EC2\
 ECS\
 ELBv2\
@@ -72,3 +78,24 @@ Global Accelerator\
 MQ\
 GameLift\
 Managed Blockchain
+
+### GCP Scanner Usage
+Using Access Keys\
+```python gcp_scanner.py --service_account_key [/path/to/key.json] --project_id [project-id]```
+
+Using OAuth Token\
+```python scanner.py --oauth_token [access_token] --project_id [project-id]```
+
+### To setup Access Keys\
+1. Login to your GCP account
+2. Navigate to IAM & Admin > Service Account
+3. Create service account and follow the instructions
+4. Click on the created service account and navigate to the "Keys" tab
+5. Add key using the JSON format
+
+### To setup OAuth Token
+0. Install Google Cloud SDK if not already installed
+1. Go to your terminal
+2. Login to using ```gcloud init```
+3. Run the command ```gcloud auth application-default login``` to use access tokens
+4. Authenticate and Get token using the command ```gcloud auth application-default print-access-token```
