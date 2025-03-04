@@ -1,18 +1,20 @@
-from flask import Flask
-from flask import make_response
+from flask import Flask, session, make_response, request
+from datetime import timedelta
 
 app = Flask(__name__)
+app.secret_key = "supersecretkey"
+app.config["SESSION_PERMANENT"] = True
+app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(hours=5)
 
 @app.route('/')
 def weak_web_app():
-    return 'WeakWebApp provided by IntegSec to test PentestTools and other tools.'
-    @app.after_request
-    def add_security_headers(response):
-        response.headers['X-Content-Type-Options'] = 'nosniff'
-        response.headers['X-Frame-Options'] = 'DENY'
-        response.headers['X-XSS-Protection'] = '1; mode=block'
-        response.headers['Content-Security-Policy'] = "default-src 'self'"
-        return response
+    session.permanent = True
+    session["user"] = "test_user"
+    
+    response = make_response('WeakWebApp provided by IntegSec to test PentestTools and other tools.')
+    response.set_cookie("session_id", "testsession", max_age=app.config["PERMANENT_SESSION_LIFETIME"].total_seconds())
+    
+    return response
 
 @app.route('/sitemap.xml')
 def sitemap():
@@ -45,4 +47,4 @@ def insecure_cors_policy(response):
     return response
 
 if __name__ == '__main__':
-    app.run(debug=True,host='0.0.0.0',port=80)
+    app.run(debug=True, host='0.0.0.0', port=80)
