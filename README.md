@@ -102,4 +102,13 @@ Using OAuth Token\
 
 #### Scans the following
 Compute Instances\
-Storage Buckets
+Kubernetes Clusters\
+Storage Buckets\
+Cloud SQL Instances\
+IAM Service Accounts\
+Cloud Functions\
+Pub/Sub Topics\
+Cloud Run Services\
+Spanner Instances\
+Memorystore Instances\
+Filestore Instances\
