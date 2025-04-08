@@ -1,0 +1,14 @@
+azure-identity
+azure-mgmt-compute
+azure-mgmt-storage
+azure-mgmt-sql
+azure-mgmt-resource
+azure-mgmt-containerservice
+azure-mgmt-network
+azure-mgmt-web
+boto3
+google-api-python-client
+google-auth
+google-auth-oauthlib
+google-auth-httplib2
+
