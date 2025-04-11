@@ -98,18 +98,6 @@ def list_application_gateways(network_client):
                     gateways.append(public_ip)
     return gateways
 
-def list_bastion_hosts(network_client):
-    bastions = []
-    for bastion in network_client.bastion_hosts.list_all():
-        for ip_config in bastion.ip_configurations:
-            if ip_config.public_ip_address:
-                resource_group = bastion.id.split("/")[4]
-                public_ip_name = ip_config.public_ip_address.id.split("/")[-1]
-                public_ip = network_client.public_ip_addresses.get(resource_group, public_ip_name).ip_address
-                if public_ip:
-                    bastions.append(public_ip)
-    return bastions
-
 def list_all_public_ips(network_client):
     ips = []
     for ip in network_client.public_ip_addresses.list_all():
@@ -160,7 +148,6 @@ def main():
         "Virtual Networks": list_virtual_networks(network_client),
         "App Services": list_web_apps_with_ips(credential, args.subscription_id),
         "Application Gateways": list_application_gateways(network_client),
-        "Bastion Hosts": list_bastion_hosts(network_client),
         "Public IP Addresses": list_all_public_ips(network_client)
     }
 
