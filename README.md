@@ -1,4 +1,4 @@
-![image](https://github.com/user-attachments/assets/6c7a684a-f564-467d-a32e-383bb62cefcb)# PentestTools
+# PentestTools
 
 Automate everything you can with our PentestTools automation framework. It's easy to copy a module sample and create your own modules.
 
