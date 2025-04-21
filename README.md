@@ -1,4 +1,4 @@
-# PentestTools
+![image](https://github.com/user-attachments/assets/6c7a684a-f564-467d-a32e-383bb62cefcb)# PentestTools
 
 Automate everything you can with our PentestTools automation framework. It's easy to copy a module sample and create your own modules.
 
@@ -13,6 +13,18 @@ In that folder, you will also find the following files:
 - TLSv1_Test.py: Tests for TLSv1 support
 - TLSv11_Test.py: Tests for TLSv1.1 support
 - ServerBanner_Test: Test for Server headers in HTTP Response
+- WildcardCert_Test: Test for wildcard certificate presence and usage
+- SessionTimeout_Test: Test for proper session timeout implementation
+- OwnerInfo_Test: Test for exposed domain ownership data
+- CORS_Test: Test for misconfigured Cross-Origin Resource Sharing
+- DeprecatedSSL_Test: Test for use of deprecated SSL/TLS versions
+- ExposedSitemap_Test: Test for public sitemap.xml exposure
+- DNSRecord_Test: Test DNS Security Records (SPF, DKIM, DMARC, CAA)
+- SelfSignedSSL_Test: Test for Self-Signed SSL Certificate
+- SecurityHeader_Test: Test for Security Headers of a Website
+- NonTLS_Test: Test for services accessible over non-TLS HTTP
+- VulnCiphers_Test: Test for weak ciphers
+- StrictTransport_Test: Test if HSTS is enforced on a website
 
 To implement a module, you only need 2 functions
 - parse_args: to parse command line arguments
@@ -26,28 +38,28 @@ Test Results should be put in a TestResult object. This object contains four pro
 
 ![image](PT.PNG)
 
-Running all modules with various output formats against www.edendata.com:
+Running all modules with various output formats against www.integsec.com:
 
 ```
-$ python .\PentestTools.py all -t www.edendata.com
-Target: www.edendata.com, Check: Server Banner, Status: not vulnerable, Details: {'Server': 'Not found'}
-Target: www.edendata.com, Check: TLSv1.1 in Use, Status: not vulnerable, Details: {'protocol': 'TLSv1.1', 'error': '[SSL: NO_CIPHERS_AVAILABLE] no ciphers available (_ssl.c:1006)'}
-Target: www.edendata.com, Check: TLSv1 in Use, Status: not vulnerable, Details: {'protocol': 'TLSv1', 'error': '[SSL: NO_CIPHERS_AVAILABLE] no ciphers available (_ssl.c:1006)'}
+$ python .\PentestTools.py all -t www.integsec.com
+Target: www.integsec.com, Check: Server Banner, Status: not vulnerable, Details: {'Server': 'Not found'}
+Target: www.integsec.com, Check: TLSv1.1 in Use, Status: not vulnerable, Details: {'protocol': 'TLSv1.1', 'error': '[SSL: NO_CIPHERS_AVAILABLE] no ciphers available (_ssl.c:1006)'}
+Target: www.integsec.com, Check: TLSv1 in Use, Status: not vulnerable, Details: {'protocol': 'TLSv1', 'error': '[SSL: NO_CIPHERS_AVAILABLE] no ciphers available (_ssl.c:1006)'}
 
-$ python .\PentestTools.py --output=csv all -t www.edendata.com
-www.edendata.com,Server Banner,not vulnerable,{"Server": "Not found"}
-www.edendata.com,TLSv1.1 in Use,not vulnerable,{"protocol": "TLSv1.1", "error": "[SSL: NO_CIPHERS_AVAILABLE] no ciphers available (_ssl.c:1006)"}
-www.edendata.com,TLSv1 in Use,not vulnerable,{"protocol": "TLSv1", "error": "[SSL: NO_CIPHERS_AVAILABLE] no ciphers available (_ssl.c:1006)"}
+$ python .\PentestTools.py --output=csv all -t www.integsec.com
+www.integsec.com,Server Banner,not vulnerable,{"Server": "Not found"}
+www.integsec.com,TLSv1.1 in Use,not vulnerable,{"protocol": "TLSv1.1", "error": "[SSL: NO_CIPHERS_AVAILABLE] no ciphers available (_ssl.c:1006)"}
+www.integsec.com,TLSv1 in Use,not vulnerable,{"protocol": "TLSv1", "error": "[SSL: NO_CIPHERS_AVAILABLE] no ciphers available (_ssl.c:1006)"}
 
-$ python .\PentestTools.py --output=xml all -t www.edendata.com
-<result><target>www.edendata.com</target><check>Server Banner</check><status>not vulnerable</status><details><Server>Not found</key></details></result>
-<result><target>www.edendata.com</target><check>TLSv1.1 in Use</check><status>not vulnerable</status><details><protocol>TLSv1.1</key><error>[SSL: NO_CIPHERS_AVAILABLE] no ciphers available (_ssl.c:1006)</key></details></result>
-<result><target>www.edendata.com</target><check>TLSv1 in Use</check><status>not vulnerable</status><details><protocol>TLSv1</key><error>[SSL: NO_CIPHERS_AVAILABLE] no ciphers available (_ssl.c:1006)</key></details></result>
+$ python .\PentestTools.py --output=xml all -t www.integsec.com
+<result><target>www.integsec.com</target><check>Server Banner</check><status>not vulnerable</status><details><Server>Not found</key></details></result>
+<result><target>www.integsec.com</target><check>TLSv1.1 in Use</check><status>not vulnerable</status><details><protocol>TLSv1.1</key><error>[SSL: NO_CIPHERS_AVAILABLE] no ciphers available (_ssl.c:1006)</key></details></result>
+<result><target>www.integsec.com</target><check>TLSv1 in Use</check><status>not vulnerable</status><details><protocol>TLSv1</key><error>[SSL: NO_CIPHERS_AVAILABLE] no ciphers available (_ssl.c:1006)</key></details></result>
 
-$ python .\PentestTools.py --output=json all -t www.edendata.com
+$ python .\PentestTools.py --output=json all -t www.integsec.com
 [
   {
-    "target": "www.edendata.com",
+    "target": "www.integsec.com",
     "status": "not vulnerable",
     "check": "Server Banner",
     "details": {
@@ -57,7 +69,7 @@ $ python .\PentestTools.py --output=json all -t www.edendata.com
 ]
 [
   {
-    "target": "www.edendata.com",
+    "target": "www.integsec.com",
     "status": "not vulnerable",
     "check": "TLSv1.1 in Use",
     "details": {
@@ -68,7 +80,7 @@ $ python .\PentestTools.py --output=json all -t www.edendata.com
 ]
 [
   {
-    "target": "www.edendata.com",
+    "target": "www.integsec.com",
     "status": "not vulnerable",
     "check": "TLSv1 in Use",
     "details": {
