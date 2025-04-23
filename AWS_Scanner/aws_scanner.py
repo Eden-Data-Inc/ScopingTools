@@ -17,14 +17,15 @@ import argparse
 import csv
 import json
 import xml.etree.ElementTree as ET
-from botocore.exceptions import ClientError, NoCredentialsError, ProfileNotFound
+from tabulate import tabulate
+from botocore.exceptions import ClientError, ProfileNotFound
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description="AWS Resource Manager")
     parser.add_argument("--role_arn", help="AWS Role ARN")
     parser.add_argument("--aws_access_key_id", help="AWS Access Key ID")
     parser.add_argument("--aws_secret_access_key", help="AWS Secret Access Key")
-    parser.add_argument("--region_name", required=True, help="AWS Region (default: us-east-2)")
+    parser.add_argument("--region_name", help="AWS Region (optional; scans all regions if not specified)")
     parser.add_argument("--sso", action="store_true", help="Use AWS SSO for authentication")
     parser.add_argument("--sso_profile", help="AWS SSO Profile Name")
     parser.add_argument("--output-json", help="Output file name for JSON format (without extension)")
@@ -70,6 +71,13 @@ def get_aws_client(service_name, args):
         print("Please choose a valid authentication method: --role_arn, --aws_access_key_id & --aws_secret_access_key, or --sso.")
         exit(1)
 
+def get_all_regions(args):
+    args_copy = vars(args).copy()
+    args_copy["region_name"] = "us-east-1"
+    ec2 = get_aws_client("ec2", argparse.Namespace(**args_copy))
+    regions = ec2.describe_regions()['Regions']
+    return [region['RegionName'] for region in regions]
+
 def list_ec2_public_ips(ec2_client):
     response = ec2_client.describe_instances()
     external_hosts = []
@@ -78,13 +86,9 @@ def list_ec2_public_ips(ec2_client):
             if 'PublicIpAddress' in instance:
                 public_ip = instance['PublicIpAddress']
                 public_dns = instance.get('PublicDnsName', 'N/A')
-                ports = [sg['FromPort'] for sg in instance.get('SecurityGroups', []) if 'FromPort' in sg]  # Approximation
-                if len(ports) != 0:
-                    for port in ports:
-                        external_hosts.append(f"{public_ip}:{port}")
-                else:
-                    external_hosts.append(f"{public_ip}")
-                external_hosts.append(f"{public_dns}")
+                external_hosts.append(f"{public_ip}")
+                if public_dns != 'N/A':
+                    external_hosts.append(f"{public_dns}")
     return external_hosts
 
 def list_elastic_ips(ec2_client):
@@ -104,13 +108,7 @@ def list_ecs_services_with_public_lb(ecs_client):
                         lb_response = ecs_client.describe_load_balancers(Names=[lb_name])
                         for lb_data in lb_response['LoadBalancers']:
                             if lb_data['Scheme'] == 'internet-facing':
-                                listeners = ecs_client.describe_listeners(LoadBalancerArn=lb_data['LoadBalancerArn'])
-                                ports = [listener['Port'] for listener in listeners['Listeners']]
-                                if len(ports) != 0:
-                                    for port in ports:
-                                        ecs_services.append(f"{lb_data['DNSName']}:{port}")
-                                else:
-                                    ecs_services.append(f"{lb_data['DNSName']}")
+                                ecs_services.append(f"{lb_data['DNSName']}")
     return ecs_services
 
 def list_load_balancers(elbv2_client):
@@ -130,13 +128,13 @@ def list_lightsail_instances(lightsail_client):
     return [f"{instance['publicIpAddress']}" for instance in response['instances'] if 'publicIpAddress' in instance]
 
 def list_elastic_beanstalk_environments(elasticbeanstalk_client):  
-   response = elasticbeanstalk_client.describe_environments()  
-   environments = []  
-   for env in response['Environments']:  
-       cname = env.get('CNAME', 'N/A')  
-       environments.append(f"{cname}:80")  
-       environments.append(f"{cname}:443")  
-   return environments
+    response = elasticbeanstalk_client.describe_environments()  
+    environments = []  
+    for env in response['Environments']:  
+        cname = env.get('CNAME', 'N/A')  
+        environments.append(f"{cname}:80")  
+        environments.append(f"{cname}:443")  
+    return environments
 
 def list_route53_hosted_zones(route53_client):
     response = route53_client.list_hosted_zones()
@@ -146,94 +144,134 @@ def list_eks_clusters(eks_client):
     return [f"{cluster}.eks.amazonaws.com:443" for cluster in eks_client.list_clusters()['clusters']]
 
 def list_app_runner_services(apprunner_client):
-   response = apprunner_client.list_services()
-   return [f"{service.get('ServiceUrl', 'N/A')}:80" for service in response['ServiceSummaryList']] + \
-          [f"{service.get('ServiceUrl', 'N/A')}:443" for service in response['ServiceSummaryList']]
+    response = apprunner_client.list_services()
+    return [f"{service.get('ServiceUrl', 'N/A')}:80" for service in response['ServiceSummaryList']] + \
+           [f"{service.get('ServiceUrl', 'N/A')}:443" for service in response['ServiceSummaryList']]
 
 def list_amplify_apps(amplify_client):
-   response = amplify_client.list_apps()
-   return [f"{app.get('DefaultDomain', 'N/A')}:80" for app in response['apps']] + \
-          [f"{app.get('DefaultDomain', 'N/A')}:443" for app in response['apps']]
+    response = amplify_client.list_apps()
+    return [f"{app.get('DefaultDomain', 'N/A')}:80" for app in response['apps']] + \
+           [f"{app.get('DefaultDomain', 'N/A')}:443" for app in response['apps']]
 
 def list_iot_endpoints(iot_client):
-   return [f"{iot_client.describe_endpoint()['endpointAddress']}:8883"] + \
-          [f"{iot_client.describe_endpoint()['endpointAddress']}:443"]
-
+    return [f"{iot_client.describe_endpoint()['endpointAddress']}:8883"] + \
+           [f"{iot_client.describe_endpoint()['endpointAddress']}:443"]
 
 def export_to_json(data, filename="output.json"):
     output = []
-    for service, resources in data.items():
-        for resource in resources:
-            if len(resource) != 0:
-                output.extend(resource)
-    output = [item for item in output]
+    for region, services in data.items():
+        for service, resources in services.items():
+            for res in resources:
+                if isinstance(res, list):
+                    for item in res:
+                        output.append({"region": region, "service": service, "resource": item})
+                else:
+                    output.append({"region": region, "service": service, "resource": res})
     with open(filename + ".json", "w") as json_file:
-        json_file.write("{" + ", ".join(output) + "}")
-    print(f"Data exported to {filename} in JSON format.")
+        json.dump(output, json_file, indent=2)
+    print(f"Data exported to {filename}.json")
 
 def export_to_csv(data, filename="output.csv"):
-    output = []
     with open(filename + ".csv", "w", newline="") as csv_file:
         writer = csv.writer(csv_file)
-        for service, resources in data.items():
-            #writer.writerow([service])
-            for resource in resources:
-                if len(resource) != 0:
-                    output.extend(resource)
-        writer.writerows([output])
-    print(f"Data exported to {filename} in CSV format.")
+        writer.writerow(["Region", "Service", "Resource"])
+        for region, services in data.items():
+            for service, resources in services.items():
+                for res in resources:
+                    if isinstance(res, list):
+                        for item in res:
+                            writer.writerow([region, service, item])
+                    else:
+                        writer.writerow([region, service, res])
+    print(f"Data exported to {filename}.csv")
 
 def export_to_xml(data, filename="output.xml"):
     root = ET.Element("AWSResources")
-    output_list = []
-    for service, resources in data.items():
-        for resource in resources:
-            if len(resource) != 0:
-                output_list.extend(resource)
-
-    print(output_list)
-    output = ', '.join(output_list)
-    root.text = str(output)
+    for region, services in data.items():
+        for service, resources in services.items():
+            for res in resources:
+                if isinstance(res, list):
+                    for item in res:
+                        res_element = ET.SubElement(root, "Resource")
+                        ET.SubElement(res_element, "Region").text = region
+                        ET.SubElement(res_element, "Service").text = service
+                        ET.SubElement(res_element, "Value").text = item
+                else:
+                    res_element = ET.SubElement(root, "Resource")
+                    ET.SubElement(res_element, "Region").text = region
+                    ET.SubElement(res_element, "Service").text = service
+                    ET.SubElement(res_element, "Value").text = res
     tree = ET.ElementTree(root)
     tree.write(filename + ".xml")
-    print(f"Data exported to {filename} in XML format.")
+    print(f"Data exported to {filename}.xml")
+
 
 def main():
     args = parse_arguments()
+    regions = [args.region_name] if args.region_name else get_all_regions(args)
+    all_results = {}
 
-    aws_services = {
-		"ec2": [
-            "list_ec2_public_ips", 
-            "list_elastic_ips",
-            ],
-		"ecs": ["list_ecs_services_with_public_lb"],
-		"elbv2": ["list_load_balancers"],
-		"s3": ["list_s3_buckets"],
-		"apigateway": ["list_api_gateway_endpoints"],
-		"lightsail": ["list_lightsail_instances"],
-		"elasticbeanstalk": ["list_elastic_beanstalk_environments"],
-		"route53": ["list_route53_hosted_zones"],
-		"eks": ["list_eks_clusters"],
-        "apprunner": ["list_app_runner_services"],
-		"amplify": ["list_amplify_apps"],
-		"iot": ["list_iot_endpoints"],
-	}
-    clients = {service: get_aws_client(service, args) for service in aws_services}
-    results = {service: [globals()[func](clients[service]) for func in functions] for service, functions in aws_services.items()}
-    for service, resources in results.items():
-        for resource in resources:
-            if len(resource) != 0:
-                for i in resource:
-                    print(i)
+    for region in regions:
+        print(f"\nScanning region: {region}")
+        args_dict = vars(args).copy()
+        args_dict["region_name"] = region
+        args_with_region = argparse.Namespace(**args_dict)
+
+        aws_services = {
+            "ec2": ["list_ec2_public_ips", "list_elastic_ips"],
+            "ecs": ["list_ecs_services_with_public_lb"],
+            "elbv2": ["list_load_balancers"],
+            "s3": ["list_s3_buckets"],
+            "apigateway": ["list_api_gateway_endpoints"],
+            "lightsail": ["list_lightsail_instances"],
+            "elasticbeanstalk": ["list_elastic_beanstalk_environments"],
+            "route53": ["list_route53_hosted_zones"],
+            "eks": ["list_eks_clusters"],
+            "apprunner": ["list_app_runner_services"],
+            "amplify": ["list_amplify_apps"],
+            "iot": ["list_iot_endpoints"],
+        }
+
+        clients = {}
+        for service in aws_services:
+            try:
+                clients[service] = get_aws_client(service, args_with_region)
+            except ClientError as e:
+                print(f"Error creating client for {service} in region {region}: {e}")
+                continue
+
+        results = {}
+        table_rows = []
+
+        for service, functions in aws_services.items():
+            if service in clients:
+                results[service] = []
+                for func in functions:
+                    try:
+                        output = globals()[func](clients[service])
+                        results[service].append(output)
+                        for item in output:
+                            if ':' in item:
+                                resource, port = item.rsplit(":", 1)
+                            else:
+                                resource, port = item, ''
+                            table_rows.append([region, service, resource, port])
+                    except Exception as e:
+                        print(f"Error calling {func} for {service} in {region}: {e}")
+
+        all_results[region] = results
+
+        if table_rows:
+            print(tabulate(table_rows, headers=["Region", "Service", "Resource", "Port"], tablefmt="grid"))
+        else:
+            print(f"No public-facing resources found in region {region}")
 
     if args.output_json:
-        export_to_json(results, args.output_json)
+        export_to_json(all_results, args.output_json)
     if args.output_csv:
-        export_to_csv(results, args.output_csv)
+        export_to_csv(all_results, args.output_csv)
     if args.output_xml:
-        export_to_xml(results, args.output_xml)
-
+        export_to_xml(all_results, args.output_xml)
 
 if __name__ == "__main__":
     main()
-
