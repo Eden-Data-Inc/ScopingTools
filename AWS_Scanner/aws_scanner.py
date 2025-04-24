@@ -162,48 +162,57 @@ def export_to_json(data, filename="output.json"):
     for region, services in data.items():
         for service, resources in services.items():
             for res in resources:
-                if isinstance(res, list):
-                    for item in res:
-                        output.append({"region": region, "service": service, "resource": item})
-                else:
-                    output.append({"region": region, "service": service, "resource": res})
+                for item in (res if isinstance(res, list) else [res]):
+                    if ":" in item:
+                        resource_ip, port = item.rsplit(":", 1)
+                    else:
+                        resource_ip, port = item, ""
+                    output.append({
+                        "region": region,
+                        "service": service,
+                        "resource_ip": resource_ip,
+                        "port": port
+                    })
     with open(filename + ".json", "w") as json_file:
         json.dump(output, json_file, indent=2)
     print(f"Data exported to {filename}.json")
 
+
 def export_to_csv(data, filename="output.csv"):
     with open(filename + ".csv", "w", newline="") as csv_file:
         writer = csv.writer(csv_file)
-        writer.writerow(["Region", "Service", "Resource"])
+        writer.writerow(["Region", "Service", "Resource IP", "Port"])
         for region, services in data.items():
             for service, resources in services.items():
                 for res in resources:
-                    if isinstance(res, list):
-                        for item in res:
-                            writer.writerow([region, service, item])
-                    else:
-                        writer.writerow([region, service, res])
+                    for item in (res if isinstance(res, list) else [res]):
+                        if ":" in item:
+                            resource_ip, port = item.rsplit(":", 1)
+                        else:
+                            resource_ip, port = item, ""
+                        writer.writerow([region, service, resource_ip, port])
     print(f"Data exported to {filename}.csv")
+
 
 def export_to_xml(data, filename="output.xml"):
     root = ET.Element("AWSResources")
     for region, services in data.items():
         for service, resources in services.items():
             for res in resources:
-                if isinstance(res, list):
-                    for item in res:
-                        res_element = ET.SubElement(root, "Resource")
-                        ET.SubElement(res_element, "Region").text = region
-                        ET.SubElement(res_element, "Service").text = service
-                        ET.SubElement(res_element, "Value").text = item
-                else:
+                for item in (res if isinstance(res, list) else [res]):
+                    if ":" in item:
+                        resource_ip, port = item.rsplit(":", 1)
+                    else:
+                        resource_ip, port = item, ""
                     res_element = ET.SubElement(root, "Resource")
                     ET.SubElement(res_element, "Region").text = region
                     ET.SubElement(res_element, "Service").text = service
-                    ET.SubElement(res_element, "Value").text = res
+                    ET.SubElement(res_element, "ResourceIP").text = resource_ip
+                    ET.SubElement(res_element, "Port").text = port
     tree = ET.ElementTree(root)
     tree.write(filename + ".xml")
     print(f"Data exported to {filename}.xml")
+
 
 
 def main():
@@ -229,7 +238,7 @@ def main():
             "eks": ["list_eks_clusters"],
             "apprunner": ["list_app_runner_services"],
             "amplify": ["list_amplify_apps"],
-            "iot": ["list_iot_endpoints"],
+            #"iot": ["list_iot_endpoints"],
         }
 
         clients = {}
