@@ -157,6 +157,137 @@ def list_iot_endpoints(iot_client):
     return [f"{iot_client.describe_endpoint()['endpointAddress']}:8883"] + \
            [f"{iot_client.describe_endpoint()['endpointAddress']}:443"]
 
+def list_waf_web_acl(waf_client):
+    response = waf_client.list_web_acls(Scope='REGIONAL')
+    waf_resources = []
+    for acl in response.get('WebACLs', []):
+        waf_resources.append(f"{acl.get('Name', 'N/A')}:{acl.get('ARN', 'N/A')}")
+    return waf_resources
+
+def list_nat_gateways(ec2_client):
+    response = ec2_client.describe_nat_gateways()
+    nat_resources = []
+    for nat in response.get('NatGateways', []):
+        for address in nat.get('NatGatewayAddresses', []):
+            ip = address.get('PublicIp')
+            if ip:
+                nat_resources.append(f"{ip}:443")
+    return nat_resources
+
+def list_rds_instances(rds_client):
+    response = rds_client.describe_db_instances()
+    rds_resources = []
+    for db in response.get('DBInstances', []):
+        if db.get('PubliclyAccessible', False):
+            endpoint = db.get('Endpoint', {}).get('Address')
+            port = db.get('Endpoint', {}).get('Port', 3306)
+            if endpoint:
+                rds_resources.append(f"{endpoint}:{port}")
+    return rds_resources
+
+def list_cloudfront_distributions(cloudfront_client):
+    response = cloudfront_client.list_distributions()
+    cloudfront_resources = []
+    dist_list = response.get('DistributionList', {}).get('Items', [])
+    for dist in dist_list:
+        domain_name = dist.get('DomainName')
+        if domain_name:
+            cloudfront_resources.append(f"{domain_name}:443")
+    return cloudfront_resources
+
+def list_aurora_clusters(rds_client):
+    response = rds_client.describe_db_clusters()
+    aurora_resources = []
+    for cluster in response.get('DBClusters', []):
+        if cluster.get('Endpoint'):
+            endpoint = cluster['Endpoint']
+            port = cluster.get('Port', 3306)
+            aurora_resources.append(f"{endpoint}:{port}")
+    return aurora_resources
+
+def list_aurora_clusters(rds_client):
+    response = rds_client.describe_db_clusters()
+    aurora_resources = []
+    for cluster in response.get('DBClusters', []):
+
+        endpoint = cluster.get('Endpoint')
+        if endpoint:
+            port = cluster.get('Port', 3306)
+            aurora_resources.append(f"{endpoint}:{port}")
+    return aurora_resources
+
+def list_appsync_apis(appsync_client):
+    response = appsync_client.list_graphql_apis()
+    appsync_endpoints = []
+    for api in response.get('graphqlApis', []):
+        endpoint = api.get('uris', {}).get('GRAPHQL')
+        if endpoint:
+            appsync_endpoints.append(f"{endpoint}:443")
+    return appsync_endpoints
+
+def list_lambda_urls(lambda_client):
+    response = lambda_client.list_functions()
+    lambda_urls = []
+    for function in response.get('Functions', []):
+        try:
+            url_config = lambda_client.get_function_url_config(FunctionName=function['FunctionName'])
+            function_url = url_config.get('FunctionUrl')
+            if function_url:
+                lambda_urls.append(f"{function_url.replace('https://', '').rstrip('/')}:443")
+        except lambda_client.exceptions.ResourceNotFoundException:
+            continue  # Skip if no URL config
+    return lambda_urls
+
+def list_fargate_tasks_public_ips(ecs_client):
+    fargate_public_ips = []
+    clusters = ecs_client.list_clusters().get('clusterArns', [])
+    for cluster in clusters:
+        services = ecs_client.list_services(cluster=cluster).get('serviceArns', [])
+        for service in services:
+            service_details = ecs_client.describe_services(cluster=cluster, services=[service])['services']
+            for s in service_details:
+                if s.get('launchType') == 'FARGATE':
+                    task_arns = ecs_client.list_tasks(cluster=cluster, serviceName=s['serviceName']).get('taskArns', [])
+                    if task_arns:
+                        tasks = ecs_client.describe_tasks(cluster=cluster, tasks=task_arns).get('tasks', [])
+                        for task in tasks:
+                            attachments = task.get('attachments', [])
+                            for attachment in attachments:
+                                if attachment['type'] == 'ElasticNetworkInterface':
+                                    for detail in attachment['details']:
+                                        if detail['name'] == 'publicIpv4Address':
+                                            fargate_public_ips.append(f"{detail['value']}:80")
+                                            fargate_public_ips.append(f"{detail['value']}:443")
+    return fargate_public_ips
+
+def list_opensearch_domains(opensearch_client):
+    response = opensearch_client.list_domain_names()
+    domains = []
+    for domain_info in response.get('DomainNames', []):
+        domain_name = domain_info['DomainName']
+        domain_detail = opensearch_client.describe_domain(DomainName=domain_name)
+        endpoint = domain_detail['DomainStatus'].get('Endpoint')
+        if endpoint:
+            domains.append(f"{endpoint}:443")
+    return domains
+
+def list_fsx_filesystems(fsx_client):
+    response = fsx_client.describe_file_systems()
+    fsx_dns = []
+    for fs in response.get('FileSystems', []):
+        dns_name = fs.get('DNSName')
+        if dns_name:
+            fsx_dns.append(f"{dns_name}:445")
+    return fsx_dns
+
+
+def list_transit_gateways(ec2_client):
+    response = ec2_client.describe_transit_gateways()
+    tgw_ids = []
+    for tgw in response.get('TransitGateways', []):
+        tgw_ids.append(f"{tgw['TransitGatewayId']}:N/A")
+    return tgw_ids
+
 def export_to_json(data, filename="output.json"):
     output = []
     for region, services in data.items():
@@ -227,8 +358,8 @@ def main():
         args_with_region = argparse.Namespace(**args_dict)
 
         aws_services = {
-            "ec2": ["list_ec2_public_ips", "list_elastic_ips"],
-            "ecs": ["list_ecs_services_with_public_lb"],
+            "ec2": ["list_ec2_public_ips", "list_elastic_ips", "list_transit_gateways"],
+            "ecs": ["list_ecs_services_with_public_lb", "list_fargate_tasks_public_ips"],
             "elbv2": ["list_load_balancers"],
             "s3": ["list_s3_buckets"],
             "apigateway": ["list_api_gateway_endpoints"],
@@ -238,7 +369,13 @@ def main():
             "eks": ["list_eks_clusters"],
             "apprunner": ["list_app_runner_services"],
             "amplify": ["list_amplify_apps"],
-            #"iot": ["list_iot_endpoints"],
+            "wafv2": ["list_waf_web_acl"],
+            "rds": ["list_rds_instances", "list_aurora_clusters"],
+            "cloudfront": ["list_cloudfront_distributions"],
+            "appsync": ["list_appsync_apis"],
+            "lambda": ["list_lambda_urls"],
+            "opensearch": ["list_opensearch_domains"],
+            "fsx": ["list_fsx_filesystems"],
         }
 
         clients = {}
@@ -266,7 +403,7 @@ def main():
                                 resource, port = item, ''
                             table_rows.append([region, service, resource, port])
                     except Exception as e:
-                        print(f"Error calling {func} for {service} in {region}: {e}")
+                        #print(f"Error calling {func} for {service} in {region}: {e}")
 
         all_results[region] = results
 
