@@ -31,6 +31,8 @@ def parse_arguments():
     parser.add_argument("--output-json", help="Output file name for JSON format (without extension)")
     parser.add_argument("--output-csv", help="Output file name for CSV format (without extension)")
     parser.add_argument("--output-xml", help="Output file name for XML format (without extension)")
+    parser.add_argument("--comprehensive", action="store_true", help="Scan everything")
+    parser.add_argument("--debug", action="store_true", help="Enable debug mode")
     return parser.parse_args()
 
 def assume_role(role_arn):
@@ -77,6 +79,19 @@ def get_all_regions(args):
     ec2 = get_aws_client("ec2", argparse.Namespace(**args_copy))
     regions = ec2.describe_regions()['Regions']
     return [region['RegionName'] for region in regions]
+
+def list_s3_hosted_cloudfront_distributions(cloudfront_client):
+    s3_backed_distributions = []
+    paginator = cloudfront_client.get_paginator("list_distributions")
+    for page in paginator.paginate():
+        for dist in page.get("DistributionList", {}).get("Items", []):
+            for origin in dist["Origins"]["Items"]:
+                domain_name = origin.get("DomainName", "")
+                if domain_name.endswith(".s3.amazonaws.com"):
+                    dist_id = dist.get("Id", "N/A")
+                    dist_domain = dist.get("DomainName", "N/A")
+                    s3_backed_distributions.append(f"{dist_domain}:443")
+    return s3_backed_distributions
 
 def list_ec2_public_ips(ec2_client):
     response = ec2_client.describe_instances()
@@ -357,33 +372,50 @@ def main():
         args_dict["region_name"] = region
         args_with_region = argparse.Namespace(**args_dict)
 
-        aws_services = {
-            "ec2": ["list_ec2_public_ips", "list_elastic_ips", "list_transit_gateways"],
-            "ecs": ["list_ecs_services_with_public_lb", "list_fargate_tasks_public_ips"],
-            "elbv2": ["list_load_balancers"],
-            "s3": ["list_s3_buckets"],
-            "apigateway": ["list_api_gateway_endpoints"],
-            "lightsail": ["list_lightsail_instances"],
-            "elasticbeanstalk": ["list_elastic_beanstalk_environments"],
-            "route53": ["list_route53_hosted_zones"],
-            "eks": ["list_eks_clusters"],
-            "apprunner": ["list_app_runner_services"],
-            "amplify": ["list_amplify_apps"],
-            "wafv2": ["list_waf_web_acl"],
-            "rds": ["list_rds_instances", "list_aurora_clusters"],
-            "cloudfront": ["list_cloudfront_distributions"],
-            "appsync": ["list_appsync_apis"],
-            "lambda": ["list_lambda_urls"],
-            "opensearch": ["list_opensearch_domains"],
-            "fsx": ["list_fsx_filesystems"],
-        }
+        if args.comprehensive:
+            aws_services = {
+                "ec2": ["list_ec2_public_ips", "list_elastic_ips", "list_transit_gateways", "list_nat_gateways"],
+                "ecs": ["list_ecs_services_with_public_lb", "list_fargate_tasks_public_ips"],
+                "elbv2": ["list_load_balancers"],
+                "s3": ["list_s3_buckets"],
+                "apigateway": ["list_api_gateway_endpoints"],
+                "lightsail": ["list_lightsail_instances"],
+                "elasticbeanstalk": ["list_elastic_beanstalk_environments"],
+                "route53": ["list_route53_hosted_zones"],
+                "eks": ["list_eks_clusters"],
+                "apprunner": ["list_app_runner_services"],
+                "amplify": ["list_amplify_apps"],
+                "wafv2": ["list_waf_web_acl"],
+                "rds": ["list_rds_instances", "list_aurora_clusters"],
+                "cloudfront": ["list_cloudfront_distributions", "list_s3_hosted_cloudfront_distributions"],
+                "appsync": ["list_appsync_apis"],
+                "lambda": ["list_lambda_urls"],
+                "opensearch": ["list_opensearch_domains"],
+                "fsx": ["list_fsx_filesystems"],
+            }
+        else:
+            aws_services = {
+                "ec2": ["list_ec2_public_ips", "list_elastic_ips", "list_transit_gateways", "list_nat_gateways"],
+                "wafv2": ["list_waf_web_acl"],
+                "rds": ["list_rds_instances", "list_aurora_clusters"],
+                "cloudfront": ["list_cloudfront_distributions", "list_s3_hosted_cloudfront_distributions"],
+                "apigateway": ["list_api_gateway_endpoints"],
+                "appsync": ["list_appsync_apis"],
+                "lambda": ["list_lambda_urls"],
+                "lightsail": ["list_lightsail_instances"],
+                "elasticbeanstalk": ["list_elastic_beanstalk_environments"],
+                "ecs": ["list_ecs_services_with_public_lb", "list_fargate_tasks_public_ips"],
+                "opensearch": ["list_opensearch_domains"],
+                "fsx": ["list_fsx_filesystems"],
+            }
 
         clients = {}
         for service in aws_services:
             try:
                 clients[service] = get_aws_client(service, args_with_region)
             except ClientError as e:
-                print(f"Error creating client for {service} in region {region}: {e}")
+                if args.debug:
+                    print(f"Error creating client for {service} in region {region}: {e}")
                 continue
 
         results = {}
@@ -403,7 +435,8 @@ def main():
                                 resource, port = item, ''
                             table_rows.append([region, service, resource, port])
                     except Exception as e:
-                        #print(f"Error calling {func} for {service} in {region}: {e}")
+                        if args.debug:
+                            print(f"Error calling {func} for {service} in {region}: {e}")
 
         all_results[region] = results
 
