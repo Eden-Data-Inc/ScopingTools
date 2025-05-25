@@ -16,6 +16,7 @@ import boto3
 import argparse
 import csv
 import json
+import socket
 import xml.etree.ElementTree as ET
 from tabulate import tabulate
 from botocore.exceptions import ClientError, ProfileNotFound
@@ -44,6 +45,12 @@ def assume_role(role_arn):
         "aws_secret_access_key": credentials["SecretAccessKey"],
         "aws_session_token": credentials["SessionToken"],
     }
+
+def resolve_ip_address(resource):
+    try:
+        return socket.gethostbyname(resource)
+    except socket.gaierror:
+        return "N/A"
 
 def get_aws_client(service_name, args):
     if args.role_arn:
@@ -430,10 +437,19 @@ def main():
                         results[service].append(output)
                         for item in output:
                             if ':' in item:
-                                resource, port = item.rsplit(":", 1)
+                                resource_part, port = item.rsplit(":", 1)
                             else:
-                                resource, port = item, ''
-                            table_rows.append([region, service, resource, port])
+                                resource_part, port = item, ''
+
+                            try:
+                                socket.inet_aton(resource_part)
+                                resource = ''
+                                ip_address = resource_part
+                            except socket.error:
+                                resource = resource_part
+                                ip_address = resolve_ip_address(resource_part)
+
+                            table_rows.append([region, service, resource, ip_address, port])
                     except Exception as e:
                         if args.debug:
                             print(f"Error calling {func} for {service} in {region}: {e}")
@@ -441,7 +457,23 @@ def main():
         all_results[region] = results
 
         if table_rows:
-            print(tabulate(table_rows, headers=["Region", "Service", "Resource", "Port"], tablefmt="grid"))
+            ip_to_row = {}
+            for row in table_rows:
+                ip = row[3]
+                current_score = sum(bool(cell.strip()) for cell in row)
+
+                if ip not in ip_to_row:
+                    ip_to_row[ip] = (current_score, row)
+                else:
+                    existing_score = ip_to_row[ip][0]
+                    if current_score > existing_score:
+                        ip_to_row[ip] = (current_score, row)
+
+            # Extract just the rows
+            unique_rows = [entry[1] for entry in ip_to_row.values()]
+
+            # Display the data in a table
+            print(tabulate(unique_rows, headers=["Region", "Service", "Resource", "IP Address", "Port"], tablefmt="grid"))
         else:
             print(f"No public-facing resources found in region {region}")
 
