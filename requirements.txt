@@ -2,3 +2,8 @@ requests
 tqdm
 Flask
 pyopenssl
+colorama
+prettytable
+dnspython
+ipwhois
+nassl
